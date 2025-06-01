@@ -4,8 +4,10 @@ import csv
 from PyQt5 import uic
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QTableWidgetItem,
-    QMessageBox, QFileDialog
+    QMessageBox, QFileDialog, QTabWidget, QLabel
 )
+from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtCore import Qt
 
 class MainApp(QMainWindow):
     def __init__(self):
@@ -13,22 +15,42 @@ class MainApp(QMainWindow):
         uic.loadUi("manajemenBuku.ui", self)
         self.setWindowTitle("Manajemen Buku")
 
-        # Menampilkan Nama dan NIM
-        self.labelNama.setText("Nama: Lalu Bisma Kurniawan Haris NIM: F1D022055")
+        self.labelJudul.setFont(QFont("Arial", 16, QFont.Bold))
+        self.labelJudul.setStyleSheet("color: #091F51;")
+        self.labelNama.setFont(QFont("Arial", 10, QFont.StyleItalic))
+        self.labelNama.setStyleSheet("color: #333333;")
+        self.labelNama.setText("Lalu Bisma Kurniawan Haris | F1D022055")
+
+        self.lineCari.setPlaceholderText("Cari...")
+        self.lineCari.setStyleSheet("QLineEdit { color: #555555; } QLineEdit:focus { color: black; }")
+        self.inputJudul.setPlaceholderText("Masukkan Judul Buku...")
+        self.inputJudul.setStyleSheet("QLineEdit { color: #555555; } QLineEdit:focus { color: black; }")
+        self.inputPengarang.setPlaceholderText("Masukkan Nama Pengarang...")
+        self.inputPengarang.setStyleSheet("QLineEdit { color: #555555; } QLineEdit:focus { color: black; }")
+        self.inputTahun.setPlaceholderText("Masukkan Tahun Terbit...")
+        self.inputTahun.setStyleSheet("QLineEdit { color: #555555; } QLineEdit:focus { color: black; }")
+
+        button_style = "QPushButton { background-color: #091F51; color: white; border-radius: 5px; padding: 5px; }" \
+                       "QPushButton:hover { background-color: #1A3C7A; }" \
+                       "QPushButton:pressed { background-color: #0A2759; }"
+        self.btnSimpan.setStyleSheet(button_style)
+        self.btnHapus.setStyleSheet(button_style)
+        self.btnExportCSV.setStyleSheet(button_style)
 
         self.initDB()
         self.loadData()
 
-        # Event
         self.btnSimpan.clicked.connect(self.simpanData)
         self.btnHapus.clicked.connect(self.hapusData)
+        self.btnExportCSV.clicked.connect(self.eksporCSV)
         self.lineCari.textChanged.connect(self.cariData)
         self.tableWidget.itemDoubleClicked.connect(self.editData)
 
-        # Menu
+        # Menu connections
         self.actionSimpan.triggered.connect(self.simpanData)
-        self.actionExport_CSV.triggered.connect(self.eksporCSV)  # Fixed action name
+        self.actionExport_CSV.triggered.connect(self.eksporCSV)
         self.actionKeluar.triggered.connect(self.close)
+        self.actionCari_Data.triggered.connect(self.focusCari)
         self.actionHapus_Data.triggered.connect(self.hapusData)
 
     def initDB(self):
@@ -73,12 +95,24 @@ class MainApp(QMainWindow):
     def hapusData(self):
         selected = self.tableWidget.currentRow()
         if selected < 0:
+            QMessageBox.warning(self, "Peringatan", "Tidak ada data yang dipilih!")
+            return
+
+        reply = QMessageBox.question(
+            self, 
+            "Konfirmasi", 
+            "Yakin ingin menghapus data ini?", 
+            QMessageBox.Yes | QMessageBox.No, 
+            QMessageBox.No
+        )
+        if reply == QMessageBox.No:
             return
 
         id_item = self.tableWidget.item(selected, 0).text()
         self.c.execute("DELETE FROM buku WHERE id = ?", (id_item,))
         self.conn.commit()
         self.loadData()
+        QMessageBox.information(self, "Sukses", "Data berhasil dihapus.")
 
     def editData(self, item):
         row = item.row()
@@ -97,10 +131,18 @@ class MainApp(QMainWindow):
 
     def cariData(self, text):
         for i in range(self.tableWidget.rowCount()):
-            item = self.tableWidget.item(i, 1)  # Kolom Judul
+            item = self.tableWidget.item(i, 1)  
             self.tableWidget.setRowHidden(i, text.lower() not in item.text().lower())
 
+    def focusCari(self):
+        self.lineCari.setFocus()
+        self.lineCari.selectAll()
+
     def eksporCSV(self):
+        if self.tableWidget.rowCount() == 0:
+            QMessageBox.warning(self, "Peringatan", "Tidak ada data untuk diekspor!")
+            return
+
         filename, _ = QFileDialog.getSaveFileName(self, "Simpan CSV", "", "CSV Files (*.csv)")
         if filename:
             with open(filename, mode='w', newline='') as file:
